@@ -555,6 +555,7 @@ app.use('/api/admin', (req, res, next) => {
   if (!allow.length) return next();
   const ip = String(req.ip || '').replace(/^::ffff:/, '');
   if (allow.includes(req.ip) || allow.includes(ip)) return next();
+  console.log(`admin_blocked ip=${req.ip} xff=${req.headers['x-forwarded-for'] || ''} allow=${allow.join('|')}`);
   return res.status(403).json({ error: 'Admin access is not available from this network.' });
 });
 app.use('/api/track', limiter(20));
