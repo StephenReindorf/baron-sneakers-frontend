@@ -553,9 +553,10 @@ app.use('/api', (req, res, next) => {
 app.use('/api/admin', (req, res, next) => {
   const allow = (process.env.ADMIN_IP_ALLOWLIST || '').split(',').map((entry) => entry.trim()).filter(Boolean);
   if (!allow.length) return next();
+  const clientIp = String(req.headers['cf-connecting-ip'] || req.ip || '').replace(/^::ffff:/, '');
   const ip = String(req.ip || '').replace(/^::ffff:/, '');
-  if (allow.includes(req.ip) || allow.includes(ip)) return next();
-  console.log(`admin_blocked ip=${req.ip} xff=${req.headers['x-forwarded-for'] || ''} allow=${allow.join('|')}`);
+  if (allow.includes(clientIp) || allow.includes(req.ip) || allow.includes(ip)) return next();
+  console.log(`admin_blocked ip=${req.ip} cf=${req.headers['cf-connecting-ip'] || ''} xff=${req.headers['x-forwarded-for'] || ''} allow=${allow.join('|')}`);
   return res.status(403).json({ error: 'Admin access is not available from this network.' });
 });
 app.use('/api/track', limiter(20));
