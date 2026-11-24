@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('express-async-errors');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -136,9 +137,19 @@ async function hydrate() {
 }
 
 async function persistProductStock(productId, sizes) {
-  await db.q(`DELETE FROM product_stock WHERE product_id = $1`, [productId]);
-  for (const [size, quantity] of Object.entries(sizes)) {
-    await db.q(`INSERT INTO product_stock (product_id, size, quantity) VALUES ($1, $2, $3)`, [productId, Number(size), quantity]);
+  const client = await db.getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM product_stock WHERE product_id = $1`, [productId]);
+    for (const [size, quantity] of Object.entries(sizes)) {
+      await client.query(`INSERT INTO product_stock (product_id, size, quantity) VALUES ($1, $2, $3) ON CONFLICT (product_id, size) DO UPDATE SET quantity = EXCLUDED.quantity`, [productId, Number(size), quantity]);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -501,6 +512,7 @@ function adminOnly(req, res, next) {
 }
 
 const limiter = (limit, windowMinutes = 15) => rateLimit({ windowMs: windowMinutes * 60 * 1000, limit, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many attempts. Please wait a few minutes and try again.' } });
+const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const csrfCookie = { httpOnly: false, sameSite: 'strict', secure: PRODUCTION, maxAge: 30 * 60 * 1000, path: '/' };
 const LOCKED = { error: 'Too many attempts. Try again in 15 minutes.' };
 

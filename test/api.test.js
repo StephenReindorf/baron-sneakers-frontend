@@ -1,4 +1,6 @@
 process.env.DEV_MEMORY_DB = 'true';
+process.env.TURNSTILE_SITE_KEY = '';
+process.env.TURNSTILE_SECRET_KEY = '';
 process.env.DEV_ADMIN_EMAIL = 'admin@test.local';
 process.env.DEV_ADMIN_PASSWORD = 'test-password';
 process.env.ADMIN_TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
