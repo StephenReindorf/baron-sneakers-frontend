@@ -704,14 +704,15 @@ app.post('/api/orders', async (req, res) => {
   res.status(201).json({ ref, total, wa_url: order.wa_url });
 });
 
-app.post('/api/requests', limiter(10), async (req, res) => {
-  if (!(await humanOk(req))) return res.status(400).json({ error: 'Could not verify this request. Please try again.' });
+app.post('/api/requests', limiter(10), imageUpload, async (req, res) => {
+  if (!(await humanOk(req))) { removeUpload(req.file); return res.status(400).json({ error: 'Could not verify this request. Please try again.' }); }
   const { item, brand, sizeWanted, pictureUrl, name, phone, notes, hp } = req.body || {};
-  if (hp) return res.status(400).json({ error: 'That request could not be submitted.' });
+  if (hp) { removeUpload(req.file); return res.status(400).json({ error: 'That request could not be submitted.' }); }
   const cleanItem = clean(item, 120);
   const cleanName = clean(name, 80);
   const cleanPhone = normalizePhone(phone);
   if (!cleanItem || !cleanName || !validPhone(cleanPhone)) {
+    removeUpload(req.file);
     return res.status(400).json({ error: 'Product name, your name, and a valid phone number are required.' });
   }
   let picture = clean(pictureUrl, 500) || null;
@@ -737,12 +738,34 @@ app.post('/api/requests', limiter(10), async (req, res) => {
     ...(request.notes ? [`Notes: ${request.notes}`] : [])
   ];
   request.wa_url = `https://wa.me/${WA}?text=${encodeURIComponent(lines.join('\n'))}`;
+  let imageData = null;
+  let imageMime = null;
+  if (req.file) {
+    imageData = await fs.promises.readFile(req.file.path);
+    imageMime = 'image/webp';
+    await fs.promises.rm(req.file.path, { force: true });
+  }
   requests.push(request);
   if (dbMode) {
-    await db.q(`INSERT INTO product_requests (item, brand, size_wanted, picture_url, name, phone, notes, ip) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [request.item, request.brand, request.size_wanted, request.picture_url, request.name, request.phone, request.notes, request.ip]);
+    await db.q(`INSERT INTO product_requests (ref, item, brand, size_wanted, picture_url, name, phone, notes, ip, image_data, image_mime) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [request.ref, request.item, request.brand, request.size_wanted, request.picture_url, request.name, request.phone, request.notes, request.ip, imageData, imageMime]);
   }
   res.status(201).json({ ref: request.ref, wa_url: request.wa_url });
+});
+
+app.get('/api/admin/requests', adminOnly, async (req, res) => {
+  if (dbMode) {
+    const rows = await db.q(`SELECT id, ref, item, brand, size_wanted, picture_url, name, phone, notes, ip, image_data IS NOT NULL AS has_image, created_at FROM product_requests ORDER BY id DESC LIMIT 500`);
+    return res.json(rows.rows.map((row) => ({ id: Number(row.id), ref: row.ref, item: row.item, brand: row.brand, size_wanted: row.size_wanted, picture_url: row.picture_url, name: row.name, phone: row.phone, notes: row.notes, ip: row.ip, has_image: row.has_image, created_at: new Date(row.created_at).toISOString() })));
+  }
+  res.json(requests.slice().reverse().map((r, i) => ({ id: requests.length - i, ...r, has_image: false })));
+});
+
+app.get('/api/admin/requests/:id/image', adminOnly, async (req, res) => {
+  if (!dbMode) return res.status(404).json({ error: 'Not found.' });
+  const row = await db.q(`SELECT image_data, image_mime FROM product_requests WHERE id = $1`, [Number(req.params.id)]);
+  if (!row.rows[0]?.image_data) return res.status(404).json({ error: 'No image.' });
+  res.type(row.rows[0].image_mime || 'image/webp').send(row.rows[0].image_data);
 });
 
 app.post('/api/track', async (req, res) => {

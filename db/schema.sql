@@ -129,3 +129,6 @@ CREATE TABLE IF NOT EXISTS product_requests (
   ip TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE product_requests ADD COLUMN IF NOT EXISTS ref TEXT;
+ALTER TABLE product_requests ADD COLUMN IF NOT EXISTS image_data BYTEA;
+ALTER TABLE product_requests ADD COLUMN IF NOT EXISTS image_mime TEXT;
