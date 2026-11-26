@@ -20,6 +20,7 @@ const Api={
  async wholesaleLogin(phone,accessCode,hp,turnstileToken){return request('/api/wholesale/login',{method:'POST',body:JSON.stringify({phone,accessCode,hp,turnstileToken})})},
  async order(o){return request('/api/orders',{method:'POST',body:JSON.stringify({hp:'',turnstileToken:'',...o,idempotencyKey:o.idempotencyKey||crypto.randomUUID()})})},
  async track(ref,last4,turnstileToken){return request('/api/track',{method:'POST',body:JSON.stringify({ref,last4,turnstileToken})})},
+ async requestProduct(o){return request('/api/requests',{method:'POST',body:JSON.stringify({hp:'',...o})})},
  async arrivalDate(){return (await request('/api/arrival')).arrival},
  arrival(from=new Date()){const d=new Date(from);if(d.getUTCDay()===0||d.getUTCHours()>=17)d.setUTCDate(d.getUTCDate()+1);if(d.getUTCDay()===0)d.setUTCDate(d.getUTCDate()+1);d.setUTCDate(d.getUTCDate()+1);return d}
 };

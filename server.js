@@ -60,6 +60,7 @@ const products = [
 ];
 let nextProductId = products.length + 1;
 const orders = [];
+const requests = [];
 const payments = [];
 const auditLog = [];
 
@@ -701,6 +702,47 @@ app.post('/api/orders', async (req, res) => {
   for (const line of lines) products.find((product) => product.id === line.product_id).sizes[line.size] -= line.quantity;
   orders.push(order);
   res.status(201).json({ ref, total, wa_url: order.wa_url });
+});
+
+app.post('/api/requests', limiter(10), async (req, res) => {
+  if (!(await humanOk(req))) return res.status(400).json({ error: 'Could not verify this request. Please try again.' });
+  const { item, brand, sizeWanted, pictureUrl, name, phone, notes, hp } = req.body || {};
+  if (hp) return res.status(400).json({ error: 'That request could not be submitted.' });
+  const cleanItem = clean(item, 120);
+  const cleanName = clean(name, 80);
+  const cleanPhone = normalizePhone(phone);
+  if (!cleanItem || !cleanName || !validPhone(cleanPhone)) {
+    return res.status(400).json({ error: 'Product name, your name, and a valid phone number are required.' });
+  }
+  let picture = clean(pictureUrl, 500) || null;
+  if (picture) {
+    try {
+      const url = new URL(picture);
+      if (!['http:', 'https:'].includes(url.protocol)) picture = null;
+    } catch { picture = null; }
+  }
+  const request = {
+    ref: `REQ-${crypto.randomBytes(3).toString('hex').toUpperCase()}`,
+    item: cleanItem, brand: clean(brand, 80) || null, size_wanted: clean(sizeWanted, 40) || null,
+    picture_url: picture, name: cleanName, phone: cleanPhone, notes: clean(notes, 300) || null,
+    ip: req.ip, createdAt: Date.now()
+  };
+  const lines = [
+    `Product request ${request.ref}`,
+    `Item: ${request.item}`,
+    ...(request.brand ? [`Brand/model: ${request.brand}`] : []),
+    ...(request.size_wanted ? [`Size wanted: ${request.size_wanted}`] : []),
+    ...(request.picture_url ? [`Picture: ${request.picture_url}`] : []),
+    `Name: ${request.name}`, `Phone: ${request.phone}`,
+    ...(request.notes ? [`Notes: ${request.notes}`] : [])
+  ];
+  request.wa_url = `https://wa.me/${WA}?text=${encodeURIComponent(lines.join('\n'))}`;
+  requests.push(request);
+  if (dbMode) {
+    await db.q(`INSERT INTO product_requests (item, brand, size_wanted, picture_url, name, phone, notes, ip) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [request.item, request.brand, request.size_wanted, request.picture_url, request.name, request.phone, request.notes, request.ip]);
+  }
+  res.status(201).json({ ref: request.ref, wa_url: request.wa_url });
 });
 
 app.post('/api/track', async (req, res) => {

@@ -116,3 +116,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 CREATE INDEX IF NOT EXISTS orders_phone_idx ON orders(phone);
 CREATE INDEX IF NOT EXISTS audit_logs_created_idx ON audit_logs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS product_requests (
+  id BIGSERIAL PRIMARY KEY,
+  item TEXT NOT NULL,
+  brand TEXT,
+  size_wanted TEXT,
+  picture_url TEXT,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  notes TEXT,
+  ip TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

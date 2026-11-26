@@ -193,3 +193,6 @@ label.ck input{width:20px;margin:2px 0;accent-color:var(--k)}
 :focus-visible{outline:3px solid var(--k);outline-offset:2px}
 body.inv :focus-visible{outline-color:#fff}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.request-section{border-top:1px solid var(--g2);margin-top:24px;padding-top:20px}
+.request-form{max-width:520px}
+textarea{width:100%;font:inherit;color:var(--k);background:var(--g1);border:1px solid var(--g2);border-radius:12px;padding:12px 14px;margin:6px 0;resize:vertical}
