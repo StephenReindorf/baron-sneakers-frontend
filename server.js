@@ -409,9 +409,9 @@ function parseProductBody(body) {
   if (typeof sizes === 'string') {
     try { sizes = JSON.parse(sizes); } catch { sizes = null; }
   }
-  if (!clean(name, 100) || !clean(brand, 60) || !clean(colorway, 80) || !Number.isInteger(Number(costCfa)) || Number(costCfa) <= 0 || !sizes || typeof sizes !== 'object') {
-    return { error: 'Name, brand, colourway, CFA cost, and stock sizes are required.' };
-  }
+  if (!clean(name, 100) || !clean(brand, 60) || !clean(colorway, 80)) return { error: 'Name, brand, and colourway are required.' };
+  if (!Number.isInteger(Number(costCfa)) || Number(costCfa) <= 0) return { error: 'CFA cost must be a whole number greater than 0.' };
+  if (!sizes || typeof sizes !== 'object') return { error: 'Add stock sizes, e.g. 41:2, 42:3.' };
   if (!PRODUCT_COLORS.has(primaryColor)) return { error: 'Choose a valid primary colour.' };
   if (accentColor && !PRODUCT_COLORS.has(accentColor)) return { error: 'Choose a valid accent colour.' };
   if (accentColor && accentColor === primaryColor) return { error: 'Accent colour must be different from the primary colour.' };
