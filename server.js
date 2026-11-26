@@ -99,7 +99,7 @@ async function hydrate() {
       id: Number(row.id), dbId: Number(row.id), name: row.name, brand: row.brand, colorway: row.colorway,
       primary_color: row.primary_color, accent_color: row.accent_color, cost_cfa: row.cost_cfa,
       sizes: Object.fromEntries(Object.entries(row.sizes || {}).map(([size, qty]) => [size, Number(qty)])),
-      fit: row.fit, shift: row.size_shift, on_request: row.on_request,
+      fit: row.fit, shift: row.size_shift, on_request: row.on_request, exclusive: row.exclusive === true,
       img: row.image_data ? `/api/products/${row.id}/image` : (row.image_url || null)
     });
   }
@@ -155,13 +155,13 @@ async function persistProductStock(productId, sizes) {
 
 async function persistProduct(product) {
   if (product.dbId == null) {
-    const ins = await db.q(`INSERT INTO products (name, brand, colorway, primary_color, accent_color, cost_cfa, fit, size_shift, on_request) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-      [product.name, product.brand, product.colorway, product.primary_color, product.accent_color, product.cost_cfa, product.fit, product.shift, product.on_request]);
+    const ins = await db.q(`INSERT INTO products (name, brand, colorway, primary_color, accent_color, cost_cfa, fit, size_shift, on_request, exclusive) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+      [product.name, product.brand, product.colorway, product.primary_color, product.accent_color, product.cost_cfa, product.fit, product.shift, product.on_request, product.exclusive === true]);
     product.dbId = Number(ins.rows[0].id);
     product.id = product.dbId;
   } else {
-    await db.q(`UPDATE products SET name=$2, brand=$3, colorway=$4, primary_color=$5, accent_color=$6, cost_cfa=$7, fit=$8, size_shift=$9, on_request=$10, active=TRUE WHERE id=$1`,
-      [product.dbId, product.name, product.brand, product.colorway, product.primary_color, product.accent_color, product.cost_cfa, product.fit, product.shift, product.on_request]);
+    await db.q(`UPDATE products SET name=$2, brand=$3, colorway=$4, primary_color=$5, accent_color=$6, cost_cfa=$7, fit=$8, size_shift=$9, on_request=$10, exclusive=$11, active=TRUE WHERE id=$1`,
+      [product.dbId, product.name, product.brand, product.colorway, product.primary_color, product.accent_color, product.cost_cfa, product.fit, product.shift, product.on_request, product.exclusive === true]);
   }
   await persistProductStock(product.dbId, product.sizes);
   return product.dbId;
@@ -248,6 +248,7 @@ function publicProduct(product, wholesale = false) {
     primary_color: product.primary_color, accent_color: product.accent_color, sizes: product.sizes,
     fit: product.fit, shift: product.shift, on_request: product.on_request, img: product.img,
     sold: !Object.values(product.sizes).some((quantity) => quantity > 0),
+    exclusive: product.exclusive === true,
     [wholesale ? 'wholesale' : 'retail']: wholesale ? price.wholesale : price.retail
   };
 }
@@ -421,7 +422,8 @@ function parseProductBody(body) {
       name: clean(name, 100), brand: clean(brand, 60), colorway: clean(colorway, 80),
       primary_color: primaryColor, accent_color: accentColor || null, cost_cfa: Number(costCfa), sizes: normalizedSizes,
       fit: clean(fit, 160) || null, shift: Number.isInteger(shiftNumber) && shiftNumber >= 0 && shiftNumber <= 5 ? shiftNumber : 0,
-      on_request: body.onRequest === true || body.onRequest === 'true'
+      on_request: body.onRequest === true || body.onRequest === 'true',
+      exclusive: body.exclusive === true || body.exclusive === 'true'
     }
   };
 }
